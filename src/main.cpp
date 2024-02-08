@@ -1,3 +1,4 @@
+#include <WiFiManager.h>
 #include <ESP8266WiFi.h>                                
 #include <Wire.h>                                       
 #include <Adafruit_BME280.h>                            
@@ -7,13 +8,12 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
  
+#define WELCOME "Welcome to the climate sensor!\n"\
+                "To get climate datas send GET HTTP request: ip/data."
 #define ID 1
 #define DESCRIPTION "Sensor of temperature, pressure, humidity"
  
-Adafruit_BME280 bme;                                    
- 
-const char* ssid = "KholDy_C80";                        
-const char* password = "38506062";                      
+Adafruit_BME280 bme;                                                        
  
 ESP8266WebServer server(80);                      
 
@@ -35,7 +35,7 @@ void getData() {
 void restServerRouting() {
   server.on("/", HTTP_GET, []() {
     server.send(200, F("text/html"),
-      F("Welcome to the kitchen switch!"));
+      F(WELCOME));
   });
   // handle post request
   server.on(F("/data"), HTTP_GET, getData);
@@ -72,21 +72,39 @@ void setup() {
   }
  
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
- 
-  //*------------------Wait for connection-----------------------------------------------------
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-  }
- 
-  //*------------------Set server routing------------------------------------------------------
-  restServerRouting();
-  
-  //*----------------Set not found response----------------------------------------------------
-  server.onNotFound(handleNotFound);
 
-  //*---------------------Start server---------------------------------------------------------
-  server.begin();                           
+    //WiFiManager, Local intialization. Once its business is done, there is no need to keep it around
+    WiFiManager wm;
+
+    // reset settings - wipe stored credentials for testing
+    // these are stored by the esp library
+    //wm.resetSettings();
+
+    // Automatically connect using saved credentials,
+    // if connection fails, it starts an access point with the specified name ( "AutoConnectAP"),
+    // if empty will auto generate SSID, if password is blank it will be anonymous AP (wm.autoConnect())
+    // then goes into a blocking loop awaiting configuration and will return success result
+
+    bool res;
+    //res = wm.autoConnect(); // auto generated AP name from chipid
+    //res = wm.autoConnect("Kitchen-light"); // anonymous ap
+    res = wm.autoConnect("The sensor of climate:","password"); // password protected ap
+
+    if(!res) {
+        Serial.println("Failed to connect");
+        // ESP.restart();
+    } 
+    else {
+        //if you get here you have connected to the WiFi    
+        Serial.println("connected...yeey :)");
+    }
+
+    // Set server routing
+    restServerRouting();
+    // Set not found response
+    server.onNotFound(handleNotFound);
+    // Start server
+    server.begin();                         
 }
  
 void loop(){
